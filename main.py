@@ -1,16 +1,13 @@
 import sys
-
 import cv2
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow,QFileDialog
 from PyQt5.QtCore import QTimer
 from window import *
-import joblib
-import os
-import torch
-from PIL import Image
 from detection import Detect
 from humanpose import Pose
 import numpy as np
+from sort import Sort
+
 
 class mwindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -20,6 +17,7 @@ class mwindow(QMainWindow, Ui_MainWindow):
         self.Detect = Detect()
         self.cap = None
         self.ref = False
+        self.mot_tracker = None
         self.frame_count = 0
         self.flag = {"video": False, "camera": True, "Detect": False, "Pose": False, "Track": False, "Count": False}
         self.timer = QTimer()
@@ -76,26 +74,50 @@ class mwindow(QMainWindow, Ui_MainWindow):
         else:
             self.flag[type] = not self.flag[type]
 
+    def sort(self, boxes):
+        if self.mot_tracker == None:
+            max_age = 300
+            min_hits = 10
+            iou_threshold = 0.3
+            self.mot_tracker = Sort(max_age, min_hits, iou_threshold)
+        for i in range(len(boxes)):
+            boxes[i][2], boxes[i][3] = boxes[i][2] + boxes[i][0], boxes[i][3]+boxes[i][1]
+        track_ed = self.mot_tracker.update(boxes)
+        for i in track_ed:
+            track_id = i[4]
+            # print('track_id:', track_id)
+            x1, y1, x2, y2 = int(i[0]), int(i[1]), int(i[2]), int(i[3])
+            # print('box:', x1, y1, x2, y2)
+            cv2.rectangle(self.image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            cv2.putText(self.image, "track_id: %d " % track_id, (x1, y1 - 20), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 2)
+
+    def pose_estimation(self, boxes):
+        human_box = []
+        for x, y, w, h in boxes:
+            x = x if x >= 0 else 0
+            y = y if y >= 0 else 0
+            human_box.append(self.image[y:y + h, x:x + w])
+        poses = self.Pose(human_box)
+        for i in range(len(poses)):
+            x, y, w, h = boxes[i]
+            pose = poses[i]
+            pose[:, 0], pose[:, 1] = pose[:, 0] * w + x, pose[:, 1] * h + y
+            self.draw_pose(pose)
+
     def show_image(self):
         step = 1
-        print(self.flag["Pose"])
         if self.cap:
             self.ref, self.image = self.cap.read()
             self.frame_count += 1
-            if self.flag["Detect"] and self.frame_count % step ==0:
+            if self.flag["Detect"] and self.frame_count % step == 0:
                 boxes = self.Detect(self.image)
-                if self.flag["Pose"] and self.frame_count % step ==0:
-                    human_box = []
-                    for x, y, w, h in boxes:
-                        x = x if x >= 0 else 0
-                        y = y if y >= 0 else 0
-                        human_box.append(self.image[y:y + h, x:x + w])
-                    poses = self.Pose(human_box)
-                    for i in range(len(poses)):
-                        x, y, w, h = boxes[i]
-                        pose = poses[i]
-                        pose[:, 0], pose[:, 1] = pose[:, 0] * w + x, pose[:, 1] * h + y
-                        self.draw_pose(pose)
+                if self.flag["Track"] and self.frame_count % step == 0:
+                    try:
+                        self.sort(np.array(boxes))
+                    except:
+                        pass
+                if self.flag["Pose"] and self.frame_count % step == 0:
+                    self.pose_estimation(boxes)
                 self.draw_box(boxes)
             show = cv2.resize(self.image, (960, 480))
             show = cv2.cvtColor(show, cv2.COLOR_BGR2RGB)
@@ -113,5 +135,6 @@ if __name__ == '__main__':
     w.open_camre.clicked.connect(lambda: w.change_flag("camera"))
     w.detect.clicked.connect(lambda: w.change_flag("Detect"))
     w.pose.clicked.connect(lambda: w.change_flag("Pose"))
+    w.track.clicked.connect(lambda: w.change_flag("Track"))
     w.show()
     sys.exit(app.exec_())
