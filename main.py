@@ -21,7 +21,7 @@ class mwindow(QMainWindow, Ui_MainWindow):
         self.cap = None
         self.ref = False
         self.frame_count = 0
-        self.flag = {"video": True, "camera": False, "Detect": False, "Pose": False, "Track": False, "Count": False}
+        self.flag = {"video": False, "camera": True, "Detect": False, "Pose": False, "Track": False, "Count": False}
         self.timer = QTimer()
         self.timer.timeout.connect(self.show_image)
         self.timer.start(0)
@@ -29,10 +29,14 @@ class mwindow(QMainWindow, Ui_MainWindow):
     def get_video(self):
         self.frame_count = 0
         if self.flag["video"]:
+            self.open_camre.setText(u'打开摄像头')
+            self.load_video.setText(u'关闭本地视频')
             video_path, _ = QFileDialog.getOpenFileName(self, '选择视频', 'D:\Jupter_book\Qt\onlinepose', 'Video files(*.mp4)')
             self.cap = cv2.VideoCapture(video_path)
         else:
-            self.cap = cv2.VideoCapture()
+            self.open_camre.setText(u'关闭摄像头')
+            self.load_video.setText(u'打开本地视频')
+            self.cap = cv2.VideoCapture(0)
         self.ref, image = self.cap.read()
         show = cv2.resize(image, (960, 480))
         show = cv2.cvtColor(show, cv2.COLOR_BGR2RGB)
@@ -65,7 +69,13 @@ class mwindow(QMainWindow, Ui_MainWindow):
         cv2.circle(self.image, pos, 4, (0, 0, 255), -1)
 
     def change_flag(self, type):
-        self.flag[type] = not self.flag[type]
+        if type == "video" or type == "camera":
+            self.flag["video"] = not self.flag["video"]
+            self.flag["camera"] = not self.flag["camera"]
+            self.get_video()
+        else:
+            self.flag[type] = not self.flag[type]
+
     def show_image(self):
         step = 1
         print(self.flag["Pose"])
@@ -99,6 +109,8 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     w = mwindow()
     w.load_video.clicked.connect(lambda: w.get_video())
+    w.load_video.clicked.connect(lambda: w.change_flag("video"))
+    w.open_camre.clicked.connect(lambda: w.change_flag("camera"))
     w.detect.clicked.connect(lambda: w.change_flag("Detect"))
     w.pose.clicked.connect(lambda: w.change_flag("Pose"))
     w.show()

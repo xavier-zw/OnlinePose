@@ -7,10 +7,10 @@ from torch import nn
 class Detect(nn.Module):
     def __init__(self):
         super(Detect, self).__init__()
-        self.net = cv2.dnn.readNetFromDarknet(r"D:\Jupter_book\Qt\onlinepose\yolov3-tiny.cfg",
-                                              r"D:\Jupter_book\Qt\onlinepose\yolov3-tiny.weights")
+        self.net = cv2.dnn.readNetFromDarknet("./config/yolov3-tiny.cfg",
+                                              r"./weight/yolov3-tiny.weights")
         self.classes = []
-        with open("coco.names", "r") as f:
+        with open("config/coco.names", "r") as f:
             self.classes = [x.strip() for x in f.readlines()]
         layer_name = self.net.getLayerNames()
         self.output_layers = [layer_name[i - 1] for i in self.net.getUnconnectedOutLayers()]

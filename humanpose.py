@@ -19,10 +19,10 @@ class Pose(nn.Module):
         parser = argparse.ArgumentParser(
             description='Convert models to ONNX')
         parser.add_argument('--config',
-                            default="litehrnet_18_coco_256x192.py",
+                            default="./config/litehrnet_18_coco_256x192.py",
                             help='config file path')
         parser.add_argument('--checkpoint',
-                            default="litehrnet_18_coco_256x192.pth",
+                            default="./weight/litehrnet_18_coco_256x192.pth",
                             help='checkpoint file')
         args = parser.parse_args()
         return args
